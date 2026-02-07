@@ -17,7 +17,10 @@ static final int TILE_SIZE = 32;
 static final int PACMAN_SPEED = TILE_SIZE / 4;
 static final int GHOST_SPEED = TILE_SIZE / 4;
 boolean gameStarted = false;
+boolean showReady = false;
 
+int titleAlpha = 255;
+int alphaDirection = -5;
 
 
     class Block {
@@ -218,15 +221,33 @@ boolean gameStarted = false;
     }
 
     public void paintComponent(Graphics g) {
+        if (!gameStarted && !showReady) {
+    Graphics2D g2 = (Graphics2D) g;
+
+    g2.setColor(Color.BLACK);
+    g2.fillRect(0, 0, boardWidth, boardHeight);
+
+    g2.setFont(new Font("Arial", Font.BOLD, 48));
+    g2.setColor(new Color(255, 255, 0, titleAlpha));
+    g2.drawString("PAC-MAN", boardWidth / 2 - 120, boardHeight / 2 - 40);
+
+    g2.setFont(new Font("Arial", Font.PLAIN, 18));
+    g2.setColor(Color.WHITE);
+    g2.drawString("Press ENTER to Start",
+            boardWidth / 2 - 90, boardHeight / 2 + 10);
+
+    return;
+}
+
         super.paintComponent(g);
         draw(g);
         if (!gameStarted) {
-    g.setColor(Color.YELLOW);
-    g.setFont(new Font("Arial", Font.BOLD, 36));
-    g.drawString("PAC-MAN", boardWidth/2 - 100, boardHeight/2 - 50);
-    g.setFont(new Font("Arial", Font.PLAIN, 24));
-    g.drawString("Press ENTER to Start", boardWidth/2 - 120, boardHeight/2);
-    return; // stop drawing the game until started
+        g.setColor(Color.YELLOW);
+        g.setFont(new Font("Arial", Font.BOLD, 36));
+        g.drawString("PAC-MAN", boardWidth/2 - 100, boardHeight/2 - 50);
+        g.setFont(new Font("Arial", Font.PLAIN, 24));
+        g.drawString("Press ENTER to Start", boardWidth/2 - 120, boardHeight/2);
+        return; // stop drawing the game until started
 }
 
     }
@@ -260,6 +281,7 @@ boolean gameStarted = false;
     return b.x % TILE_SIZE == 0 && b.y % TILE_SIZE == 0;
         }
     public void move() {
+        if (!gameStarted) return;
         if (nextDirection != Direction.NONE && isCentered(pacman)) {
             Direction oldDirection = pacman.direction;
 
@@ -399,6 +421,14 @@ for (int i = 0; i < 4 && !moved; i++) {
 
     @Override
     public void actionPerformed(ActionEvent e) {
+        if (!gameStarted && !showReady) {
+        titleAlpha += alphaDirection;
+        if (titleAlpha <= 50 || titleAlpha >= 255) {
+            alphaDirection *= -1;
+        }
+        repaint();
+        return;
+    }
         move();
         repaint();
         if (gameOver) {
@@ -409,24 +439,30 @@ for (int i = 0; i < 4 && !moved; i++) {
     @Override
     public void keyTyped(KeyEvent e) {}
 
+    
     @Override
-    public void keyPressed(KeyEvent e) {
-         if (e.getKeyCode() == KeyEvent.VK_UP)
-    nextDirection = Direction.UP;
-else if (e.getKeyCode() == KeyEvent.VK_DOWN)
-    nextDirection = Direction.DOWN;
-else if (e.getKeyCode() == KeyEvent.VK_LEFT)
-    nextDirection = Direction.LEFT;
-else if (e.getKeyCode() == KeyEvent.VK_RIGHT)
-    nextDirection = Direction.RIGHT;
-if (!gameStarted && e.getKeyCode() == KeyEvent.VK_ENTER) {
-    gameStarted = true;
-    gameLoop.start();
-    return;
+public void keyPressed(KeyEvent e) {
+
+    // START GAME
+    if (!gameStarted && e.getKeyCode() == KeyEvent.VK_ENTER) {
+        gameStarted = true;
+        return; // stop here, no movement yet
+    }
+
+    // IGNORE MOVEMENT UNTIL GAME STARTS
+    if (!gameStarted) return;
+
+    // MOVEMENT
+    if (e.getKeyCode() == KeyEvent.VK_UP)
+        nextDirection = Direction.UP;
+    else if (e.getKeyCode() == KeyEvent.VK_DOWN)
+        nextDirection = Direction.DOWN;
+    else if (e.getKeyCode() == KeyEvent.VK_LEFT)
+        nextDirection = Direction.LEFT;
+    else if (e.getKeyCode() == KeyEvent.VK_RIGHT)
+        nextDirection = Direction.RIGHT;
 }
 
-
-    }
 
     @Override
     public void keyReleased(KeyEvent e) {
