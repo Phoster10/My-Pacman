@@ -18,6 +18,9 @@ static final int PACMAN_SPEED = TILE_SIZE / 4;
 static final int GHOST_SPEED = TILE_SIZE / 4;
 boolean gameStarted = false;
 boolean showReady = false;
+int readyTimer = 0;
+static final int READY_DURATION = 60; // ~3 seconds at 20 FPS
+
 
 int titleAlpha = 255;
 int alphaDirection = -5;
@@ -220,37 +223,51 @@ int alphaDirection = -5;
         }
     }
 
-    public void paintComponent(Graphics g) {
-        if (!gameStarted && !showReady) {
-    Graphics2D g2 = (Graphics2D) g;
+    @Override
+public void paintComponent(Graphics g) {
 
-    g2.setColor(Color.BLACK);
-    g2.fillRect(0, 0, boardWidth, boardHeight);
+    // TITLE SCREEN
+    if (!gameStarted && !showReady) {
+        Graphics2D g2 = (Graphics2D) g;
 
-    g2.setFont(new Font("Arial", Font.BOLD, 48));
-    g2.setColor(new Color(255, 255, 0, titleAlpha));
-    g2.drawString("PAC-MAN", boardWidth / 2 - 120, boardHeight / 2 - 40);
+        g2.setColor(Color.BLACK);
+        g2.fillRect(0, 0, boardWidth, boardHeight);
 
-    g2.setFont(new Font("Arial", Font.PLAIN, 18));
-    g2.setColor(Color.WHITE);
-    g2.drawString("Press ENTER to Start",
-            boardWidth / 2 - 90, boardHeight / 2 + 10);
+        g2.setFont(new Font("Arial", Font.BOLD, 48));
+        g2.setColor(new Color(255, 255, 0, titleAlpha));
+        g2.drawString("PAC-MAN", boardWidth / 2 - 120, boardHeight / 2 - 40);
 
-    return;
-}
-
-        super.paintComponent(g);
-        draw(g);
-        if (!gameStarted) {
-        g.setColor(Color.YELLOW);
-        g.setFont(new Font("Arial", Font.BOLD, 36));
-        g.drawString("PAC-MAN", boardWidth/2 - 100, boardHeight/2 - 50);
-        g.setFont(new Font("Arial", Font.PLAIN, 24));
-        g.drawString("Press ENTER to Start", boardWidth/2 - 120, boardHeight/2);
-        return; // stop drawing the game until started
-}
-
+        g2.setFont(new Font("Arial", Font.PLAIN, 18));
+        g2.setColor(Color.WHITE);
+        g2.drawString("Press ENTER to Start",
+                boardWidth / 2 - 90, boardHeight / 2 + 10);
+        return;
     }
+
+    // READY / GO
+    if (showReady) {
+        Graphics2D g2 = (Graphics2D) g;
+
+        g2.setColor(Color.BLACK);
+        g2.fillRect(0, 0, boardWidth, boardHeight);
+
+        g2.setFont(new Font("Arial", Font.BOLD, 36));
+
+        if (readyTimer > READY_DURATION / 2) {
+            g2.setColor(Color.YELLOW);
+            g2.drawString("READY!", boardWidth / 2 - 70, boardHeight / 2);
+        } else {
+            g2.setColor(Color.GREEN);
+            g2.drawString("GO!", boardWidth / 2 - 30, boardHeight / 2);
+        }
+        return;
+    }
+
+    // GAME
+    super.paintComponent(g);
+    draw(g);
+}
+
 
     public void draw(Graphics g) {
         g.drawImage(pacman.image, pacman.x, pacman.y, pacman.width, pacman.height, null);
@@ -429,6 +446,19 @@ for (int i = 0; i < 4 && !moved; i++) {
         repaint();
         return;
     }
+    // READY / GO COUNTDOWN
+if (showReady) {
+    readyTimer--;
+
+    if (readyTimer <= 0) {
+        showReady = false;
+        gameStarted = true;
+    }
+
+    repaint();
+    return;
+}
+
         move();
         repaint();
         if (gameOver) {
@@ -445,9 +475,11 @@ public void keyPressed(KeyEvent e) {
 
     // START GAME
     if (!gameStarted && e.getKeyCode() == KeyEvent.VK_ENTER) {
-        gameStarted = true;
-        return; // stop here, no movement yet
-    }
+    showReady = true;
+    readyTimer = READY_DURATION;
+    return;
+}
+
 
     // IGNORE MOVEMENT UNTIL GAME STARTS
     if (!gameStarted) return;
