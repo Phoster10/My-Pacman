@@ -20,6 +20,9 @@ boolean gameStarted = false;
 boolean showReady = false;
 int readyTimer = 0;
 static final int READY_DURATION = 60; // ~3 seconds at 20 FPS
+boolean mouthOpen = true;
+int mouthTimer = 0;
+static final int MOUTH_SPEED = 5;
 
 
 int titleAlpha = 255;
@@ -270,7 +273,16 @@ public void paintComponent(Graphics g) {
 
 
     public void draw(Graphics g) {
-        g.drawImage(pacman.image, pacman.x, pacman.y, pacman.width, pacman.height, null);
+        if (!mouthOpen) {
+    g.setColor(Color.YELLOW);
+    g.fillOval(pacman.x, pacman.y, pacman.width, pacman.height);
+} else {
+    g.drawImage(pacman.image,
+            pacman.x, pacman.y,
+            pacman.width, pacman.height,
+            null);
+}
+
 
         for (Block ghost : ghosts) {
             g.drawImage(ghost.image, ghost.x, ghost.y, ghost.width, ghost.height, null);
@@ -306,6 +318,14 @@ public void paintComponent(Graphics g) {
     pacman.updateDirection(nextDirection);
 
     // test the turn by simulating one step
+    switch (pacman.direction) {
+    case UP -> pacman.image = pacmanUpImage;
+    case DOWN -> pacman.image = pacmanDownImage;
+    case LEFT -> pacman.image = pacmanLeftImage;
+    case RIGHT -> pacman.image = pacmanRightImage;
+    default -> {}
+}
+
     pacman.x += pacman.velocityX;
     pacman.y += pacman.velocityY;
 
@@ -327,15 +347,16 @@ public void paintComponent(Graphics g) {
         nextDirection = Direction.NONE;
     }
 }
-switch (pacman.direction) {
-    case UP -> pacman.image = pacmanUpImage;
-    case DOWN -> pacman.image = pacmanDownImage;
-    case LEFT -> pacman.image = pacmanLeftImage;
-    case RIGHT -> pacman.image = pacmanRightImage;
-    case NONE -> {} // do nothing
+// === MOUTH ANIMATION TIMER ===
+if (pacman.velocityX != 0 || pacman.velocityY != 0) {
+    mouthTimer++;
+    if (mouthTimer >= MOUTH_SPEED) {
+        mouthOpen = !mouthOpen;
+        mouthTimer = 0;
+    }
+} else {
+    mouthOpen = true; // reset when stopped
 }
-
-
 
         pacman.x += pacman.velocityX;
         pacman.y += pacman.velocityY;
