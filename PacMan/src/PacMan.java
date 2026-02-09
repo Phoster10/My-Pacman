@@ -2,11 +2,13 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.HashSet;
 import java.util.Random;
+
+import javax.imageio.ImageIO;
 import javax.swing.*;
+import java.awt.image.BufferedImage;
 enum Direction {
     UP, DOWN, LEFT, RIGHT, NONE
 }
-
 
 public class PacMan extends JPanel implements ActionListener, KeyListener {
 static final int ROWS = 21;
@@ -23,10 +25,12 @@ static final int READY_DURATION = 60; // ~3 seconds at 20 FPS
 boolean mouthOpen = true;
 int mouthTimer = 0;
 static final int MOUTH_SPEED = 1;
+boolean scaredMode = false;
+int scaredTimer = 0;
+static final int SCARED_DURATION = FPS * 8; // ~8 seconds
 
 int titleAlpha = 255;
 int alphaDirection = -5;
-
 
     class Block {
 
@@ -41,6 +45,7 @@ int alphaDirection = -5;
         Direction direction = Direction.NONE;
         int velocityX = 0;
         int velocityY = 0;
+        boolean isEnergizer = false;
 
         Block(Image image, int x, int y, int width, int height) {
             this.image = image;
@@ -56,7 +61,6 @@ int alphaDirection = -5;
         this.direction = direction;
         updateVelocity();
         }
-
 
         void updateVelocity() {
     switch (direction) {
@@ -81,8 +85,8 @@ int alphaDirection = -5;
             velocityY = 0;
         }
     }
-}
 
+}
 
         void reset() {
             this.x = this.startX;
@@ -94,10 +98,10 @@ int alphaDirection = -5;
     private int boardHeight = ROWS * TILE_SIZE;
 
     private Image wallImage;
-    private Image blueGhostImage;
-    private Image orangeGhostImage;
-    private Image pinkGhostImage;
-    private Image redGhostImage;
+    private BufferedImage blueGhostImage;
+    private BufferedImage orangeGhostImage;
+    private BufferedImage pinkGhostImage;
+    private BufferedImage redGhostImage;
 
     
 
@@ -147,7 +151,6 @@ int alphaDirection = -5;
     boolean gameOver = false;
     Direction nextDirection = Direction.NONE;
 
-
     PacMan() {
         setPreferredSize(new Dimension(boardWidth, boardHeight));
         setBackground(Color.BLACK);
@@ -156,12 +159,14 @@ int alphaDirection = -5;
 
         //load images
         wallImage = new ImageIcon(getClass().getResource("./wall.png")).getImage();
-        blueGhostImage = new ImageIcon(getClass().getResource("./blueGhost.png")).getImage();
-        orangeGhostImage = new ImageIcon(getClass().getResource("./orangeGhost.png")).getImage();
-        pinkGhostImage = new ImageIcon(getClass().getResource("./pinkGhost.png")).getImage();
-        redGhostImage = new ImageIcon(getClass().getResource("./redGhost.png")).getImage();
-
-    
+        try {
+    blueGhostImage = ImageIO.read(getClass().getResource("./blueGhost.png"));
+    orangeGhostImage = ImageIO.read(getClass().getResource("./orangeGhost.png"));
+    pinkGhostImage = ImageIO.read(getClass().getResource("./pinkGhost.png"));
+    redGhostImage = ImageIO.read(getClass().getResource("./redGhost.png"));
+} catch (Exception e) {
+    e.printStackTrace();
+}
 
         loadMap();
         for (Block ghost : ghosts) {
@@ -212,12 +217,14 @@ int alphaDirection = -5;
                   pacman = new Block(null, x, y, TILE_SIZE, TILE_SIZE);
 
                 }
-                else if (tileMapChar == ' ') { //food
-                    Block food = new Block(null, x + 14, y + 14, 4, 4);
-                    foods.add(food);
+                else if (tileMapChar == ' ') { // normal food
+    Block food = new Block(null, x + 14, y + 14, 4, 4);
+    foods.add(food);
                 }
+
             }
         }
+    placeRandomEnergizers(4);
     }
 
     @Override
@@ -265,32 +272,53 @@ public void paintComponent(Graphics g) {
     draw(g);
 }
 
-
     public void draw(Graphics g) {
-        drawPacMan((Graphics2D) g);
+    Graphics2D g2 = (Graphics2D) g;
 
-        for (Block ghost : ghosts) {
-            g.drawImage(ghost.image, ghost.x, ghost.y, ghost.width, ghost.height, null);
-        }
+    // === WALLS ===
+    for (Block wall : walls) {
+        g2.drawImage(wall.image, wall.x, wall.y, wall.width, wall.height, null);
+    }
 
-        for (Block wall : walls) {
-            g.drawImage(wall.image, wall.x, wall.y, wall.width, wall.height, null);
-        }
-
-        g.setColor(Color.WHITE);
-        for (Block food : foods) {
-            g.fillRect(food.x, food.y, food.width, food.height);
-        }
-        //score
-        g.setFont(new Font("Arial", Font.PLAIN, 18));
-        if (gameOver) {
-            g.drawString("...", TILE_SIZE / 2, TILE_SIZE / 2);
-
-        }
-        else {
-            g.drawString("x" + String.valueOf(lives) + " Score: " + String.valueOf(score), TILE_SIZE/2, TILE_SIZE/2);
+    // === FOOD ===
+    for (Block food : foods) {
+        g2.setColor(Color.WHITE);
+        if (food.isEnergizer) {
+            g2.fillOval(food.x, food.y, food.width, food.height);
+        } else {
+            g2.fillRect(food.x, food.y, food.width, food.height);
         }
     }
+
+    // === GHOSTS ===
+    for (Block ghost : ghosts) {
+        if (scaredMode) {
+            drawScaredGhost(g2, ghost);
+        } else {
+            g2.drawImage(
+                ghost.image,
+                ghost.x,
+                ghost.y,
+                ghost.width,
+                ghost.height,
+                null
+            );
+        }
+    }
+
+    // === PAC-MAN ===
+    drawPacMan(g2);
+
+    // === UI ===
+    g2.setFont(new Font("Arial", Font.PLAIN, 18));
+    if (gameOver) {
+        g2.drawString("...", TILE_SIZE / 2, TILE_SIZE / 2);
+    } else {
+        g2.drawString("x" + lives + "  Score: " + score,
+                TILE_SIZE / 2, TILE_SIZE / 2);
+    }
+}
+
     private void drawPacMan(Graphics2D g2) {
     g2.setColor(Color.YELLOW);
 
@@ -315,17 +343,31 @@ public void paintComponent(Graphics g) {
     );
 }
 
+private void placeRandomEnergizers(int count) {
+    Object[] foodArray = foods.toArray();
+
+    for (int i = 0; i < count && foodArray.length > 0; i++) {
+        Block food = (Block) foodArray[random.nextInt(foodArray.length)];
+        food.isEnergizer = true;
+
+        // make it bigger and centered
+        food.x -= 6;
+        food.y -= 6;
+        food.width = TILE_SIZE / 2;
+        food.height = TILE_SIZE / 2;
+    }
+}
+
     public boolean isCentered(Block b) {
     return b.x % TILE_SIZE == 0 && b.y % TILE_SIZE == 0;
         }
+
     public void move() {
         if (!gameStarted) return;
         if (nextDirection != Direction.NONE && isCentered(pacman)) {
             Direction oldDirection = pacman.direction;
 
-
     pacman.updateDirection(nextDirection);
-
 
 
     pacman.x += pacman.velocityX;
@@ -384,13 +426,20 @@ else if (pacman.x > boardWidth) {
         //check ghost collisions
         for (Block ghost : ghosts) {
             if (collision(ghost, pacman)) {
-                lives -= 1;
-                if (lives == 0) {
-                    gameOver = true;
-                    return;
-                }
-                resetPositions();
-            }
+
+    if (scaredMode) {
+        // eat ghost
+        ghost.reset();
+        score += 200;
+    } else {
+        lives--;
+        if (lives == 0) {
+            gameOver = true;
+            return;
+        }
+        resetPositions();
+    }
+}
 
             if (ghost.y == TILE_SIZE * 9 &&
             ghost.direction != Direction.UP &&
@@ -402,9 +451,21 @@ else if (pacman.x > boardWidth) {
 
 for (int i = 0; i < 4 && !moved; i++) {
 
-    ghost.x += ghost.velocityX;
-    ghost.y += ghost.velocityY;
+    // Copy the normal velocity
+    int vx = ghost.velocityX;
+    int vy = ghost.velocityY;
 
+    // If scared, move at half speed
+    if (scaredMode) {
+        vx /= 2;
+        vy /= 2;
+    }
+
+    // Move the ghost
+    ghost.x += vx;
+    ghost.y += vy;
+
+    // Check collisions
     boolean blocked = false;
     for (Block wall : walls) {
         if (collision(ghost, wall) || ghost.x <= 0 || ghost.x + ghost.width >= boardWidth) {
@@ -413,10 +474,12 @@ for (int i = 0; i < 4 && !moved; i++) {
         }
     }
 
+    // Undo move if blocked
     if (blocked) {
-        ghost.x -= ghost.velocityX;
-        ghost.y -= ghost.velocityY;
-        ghost.updateDirection(directions[random.nextInt(4)]);
+        ghost.x -= vx;
+        ghost.y -= vy;
+        ghost.updateDirection(getRandomNewDirection(ghost.direction));
+
     } else {
         moved = true;
     }
@@ -424,21 +487,50 @@ for (int i = 0; i < 4 && !moved; i++) {
 
         }
 
-        //check food collision
         Block foodEaten = null;
-        for (Block food : foods) {
-            if (collision(pacman, food)) {
-                foodEaten = food;
-                score += 10;
+
+for (Block food : foods) {
+    if (collision(pacman, food)) {
+        foodEaten = food;
+
+        if (food.isEnergizer) {
+            scaredMode = true;
+            scaredTimer = SCARED_DURATION;
+
+            for (Block ghost : ghosts) {
+                // reverse direction
+                ghost.velocityX *= -1;
+                ghost.velocityY *= -1;
             }
+        } else {
+            score += 10;
         }
-        foods.remove(foodEaten);
+        break;
+    }
+}
+
+if (foodEaten != null) {
+    foods.remove(foodEaten);
+}
 
         if (foods.isEmpty()) {
             loadMap();
             resetPositions();
         }
-    }
+}
+private Direction getRandomNewDirection(Direction current) {
+    Direction newDir;
+    do {
+        newDir = directions[random.nextInt(directions.length)];
+    } while (
+        newDir == current ||
+        (current == Direction.UP && newDir == Direction.DOWN) ||
+        (current == Direction.DOWN && newDir == Direction.UP) ||
+        (current == Direction.LEFT && newDir == Direction.RIGHT) ||
+        (current == Direction.RIGHT && newDir == Direction.LEFT)
+    );
+    return newDir;
+}
 
     public boolean collision(Block a, Block b) {
         return  a.x < b.x + b.width &&
@@ -487,6 +579,13 @@ if (showReady) {
         if (gameOver) {
             gameLoop.stop();
         }
+        if (scaredMode) {
+    scaredTimer--;
+    if (scaredTimer <= 0) {
+        scaredMode = false;
+    }
+}
+
     }
 
     @Override
@@ -503,7 +602,6 @@ public void keyPressed(KeyEvent e) {
     return;
 }
 
-
     // IGNORE MOVEMENT UNTIL GAME STARTS
     if (!gameStarted) return;
 
@@ -518,7 +616,6 @@ public void keyPressed(KeyEvent e) {
         nextDirection = Direction.RIGHT;
 }
 
-
     @Override
     public void keyReleased(KeyEvent e) {
         if (gameOver) {
@@ -531,6 +628,71 @@ public void keyPressed(KeyEvent e) {
         }
         
     }
-    
+private void drawScaredGhost(Graphics2D g2, Block ghost) {
+    int x = ghost.x;
+    int y = ghost.y;
+    int w = ghost.width;
+    int h = ghost.height;
 
+    // ================= BODY (OPAQUE BLUE) =================
+    g2.setColor(new Color(0, 0, 255)); // classic solid blue
+    g2.fillRoundRect(x, y, w, h - 6, 16, 16);
+
+    // ================= WAVY BOTTOM =================
+    int waveCount = 4;
+    int waveWidth = w / waveCount;
+    for (int i = 0; i < waveCount; i++) {
+        g2.fillArc(
+            x + i * waveWidth,
+            y + h - 12,
+            waveWidth,
+            12,
+            0,
+            180
+        );
+    }
+
+    // ================= EYES (WHITE, NO PUPILS) =================
+    g2.setColor(Color.WHITE);
+    int eyeWidth = w / 5;
+    int eyeHeight = h / 5;
+    int eyeY = y + h / 3;
+
+    g2.fillOval(x + w / 4 - eyeWidth / 2, eyeY, eyeWidth, eyeHeight);
+    g2.fillOval(x + (3 * w) / 4 - eyeWidth / 2, eyeY, eyeWidth, eyeHeight);
+
+// ================= SERRATED "M" MOUTH =================
+g2.setColor(Color.WHITE);
+
+int mouthY = y + (h * 2) / 3;
+int mouthLeft = x + w / 4;
+int mouthRight = x + (3 * w) / 4;
+int mouthWidth = mouthRight - mouthLeft;
+
+// Height of the serration
+int jag = 5;
+
+// M-shaped jagged mouth (iconic scared look)
+int[] xPoints = {
+    mouthLeft,
+    mouthLeft + mouthWidth / 6,
+    mouthLeft + mouthWidth / 3,
+    mouthLeft + mouthWidth / 2,
+    mouthLeft + (2 * mouthWidth) / 3,
+    mouthLeft + (5 * mouthWidth) / 6,
+    mouthRight
+};
+
+int[] yPoints = {
+    mouthY,
+    mouthY - jag,
+    mouthY,
+    mouthY - jag,
+    mouthY,
+    mouthY - jag,
+    mouthY
+};
+
+g2.drawPolyline(xPoints, yPoints, xPoints.length);
+    }
 }
