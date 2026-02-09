@@ -22,8 +22,7 @@ int readyTimer = 0;
 static final int READY_DURATION = 60; // ~3 seconds at 20 FPS
 boolean mouthOpen = true;
 int mouthTimer = 0;
-static final int MOUTH_SPEED = 5;
-
+static final int MOUTH_SPEED = 1;
 
 int titleAlpha = 255;
 int alphaDirection = -5;
@@ -100,10 +99,7 @@ int alphaDirection = -5;
     private Image pinkGhostImage;
     private Image redGhostImage;
 
-    private Image pacmanUpImage;
-    private Image pacmanDownImage;
-    private Image pacmanLeftImage;
-    private Image pacmanRightImage;
+    
 
     //X = wall, O = skip, P = pac man, ' ' = food
     //Ghosts: b = blue, o = orange, p = pink, r = red
@@ -165,10 +161,7 @@ int alphaDirection = -5;
         pinkGhostImage = new ImageIcon(getClass().getResource("./pinkGhost.png")).getImage();
         redGhostImage = new ImageIcon(getClass().getResource("./redGhost.png")).getImage();
 
-        pacmanUpImage = new ImageIcon(getClass().getResource("./pacmanUp.png")).getImage();
-        pacmanDownImage = new ImageIcon(getClass().getResource("./pacmanDown.png")).getImage();
-        pacmanLeftImage = new ImageIcon(getClass().getResource("./pacmanLeft.png")).getImage();
-        pacmanRightImage = new ImageIcon(getClass().getResource("./pacmanRight.png")).getImage();
+    
 
         loadMap();
         for (Block ghost : ghosts) {
@@ -216,7 +209,8 @@ int alphaDirection = -5;
                     ghosts.add(ghost);
                 }
                 else if (tileMapChar == 'P') { //pacman
-                    pacman = new Block(pacmanRightImage, x, y, TILE_SIZE, TILE_SIZE);
+                  pacman = new Block(null, x, y, TILE_SIZE, TILE_SIZE);
+
                 }
                 else if (tileMapChar == ' ') { //food
                     Block food = new Block(null, x + 14, y + 14, 4, 4);
@@ -273,16 +267,7 @@ public void paintComponent(Graphics g) {
 
 
     public void draw(Graphics g) {
-        if (!mouthOpen) {
-    g.setColor(Color.YELLOW);
-    g.fillOval(pacman.x, pacman.y, pacman.width, pacman.height);
-} else {
-    g.drawImage(pacman.image,
-            pacman.x, pacman.y,
-            pacman.width, pacman.height,
-            null);
-}
-
+        drawPacMan((Graphics2D) g);
 
         for (Block ghost : ghosts) {
             g.drawImage(ghost.image, ghost.x, ghost.y, ghost.width, ghost.height, null);
@@ -306,6 +291,30 @@ public void paintComponent(Graphics g) {
             g.drawString("x" + String.valueOf(lives) + " Score: " + String.valueOf(score), TILE_SIZE/2, TILE_SIZE/2);
         }
     }
+    private void drawPacMan(Graphics2D g2) {
+    g2.setColor(Color.YELLOW);
+
+    int startAngle = 0;
+    int arcAngle = mouthOpen ? 300 : 360; // open vs closed
+
+    switch (pacman.direction) {
+        case RIGHT -> startAngle = mouthOpen ? 30 : 0;
+        case LEFT  -> startAngle = mouthOpen ? 210 : 180;
+        case UP    -> startAngle = mouthOpen ? 120 : 90;
+        case DOWN  -> startAngle = mouthOpen ? 300 : 270;
+        default    -> startAngle = 0;
+    }
+
+    g2.fillArc(
+            pacman.x,
+            pacman.y,
+            pacman.width,
+            pacman.height,
+            startAngle,
+            arcAngle
+    );
+}
+
     public boolean isCentered(Block b) {
     return b.x % TILE_SIZE == 0 && b.y % TILE_SIZE == 0;
         }
@@ -317,14 +326,7 @@ public void paintComponent(Graphics g) {
 
     pacman.updateDirection(nextDirection);
 
-    // test the turn by simulating one step
-    switch (pacman.direction) {
-    case UP -> pacman.image = pacmanUpImage;
-    case DOWN -> pacman.image = pacmanDownImage;
-    case LEFT -> pacman.image = pacmanLeftImage;
-    case RIGHT -> pacman.image = pacmanRightImage;
-    default -> {}
-}
+
 
     pacman.x += pacman.velocityX;
     pacman.y += pacman.velocityY;
