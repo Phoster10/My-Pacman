@@ -39,13 +39,14 @@ int alphaDirection = -5;
         int width;
         int height;
         Image image;
-
         int startX;
         int startY;
         Direction direction = Direction.NONE;
         int velocityX = 0;
         int velocityY = 0;
         boolean isEnergizer = false;
+        String ghostType = ""; // "red", "pink", "blue", "orange"
+
 
         Block(Image image, int x, int y, int width, int height) {
             this.image = image;
@@ -197,22 +198,30 @@ int alphaDirection = -5;
                     Block wall = new Block(wallImage, x, y, TILE_SIZE, TILE_SIZE);
                     walls.add(wall);
                 }
-                else if (tileMapChar == 'b') { //blue ghost
+               else if (tileMapChar == 'b') {
                     Block ghost = new Block(blueGhostImage, x, y, TILE_SIZE, TILE_SIZE);
+                    ghost.ghostType = "blue";
                     ghosts.add(ghost);
                 }
-                else if (tileMapChar == 'o') { //orange ghost
+
+                else if (tileMapChar == 'o') {
                     Block ghost = new Block(orangeGhostImage, x, y, TILE_SIZE, TILE_SIZE);
+                    ghost.ghostType = "orange";
                     ghosts.add(ghost);
                 }
-                else if (tileMapChar == 'p') { //pink ghost
+
+                else if (tileMapChar == 'p') {
                     Block ghost = new Block(pinkGhostImage, x, y, TILE_SIZE, TILE_SIZE);
+                    ghost.ghostType = "pink";
                     ghosts.add(ghost);
                 }
-                else if (tileMapChar == 'r') { //red ghost
+
+                else if (tileMapChar == 'r') {
                     Block ghost = new Block(redGhostImage, x, y, TILE_SIZE, TILE_SIZE);
+                    ghost.ghostType = "red";
                     ghosts.add(ghost);
                 }
+
                 else if (tileMapChar == 'P') { //pacman
                   pacman = new Block(null, x, y, TILE_SIZE, TILE_SIZE);
 
@@ -326,12 +335,13 @@ public void paintComponent(Graphics g) {
     int arcAngle = mouthOpen ? 300 : 360; // open vs closed
 
     switch (pacman.direction) {
-        case RIGHT -> startAngle = mouthOpen ? 30 : 0;
-        case LEFT  -> startAngle = mouthOpen ? 210 : 180;
-        case UP    -> startAngle = mouthOpen ? 120 : 90;
-        case DOWN  -> startAngle = mouthOpen ? 300 : 270;
-        default    -> startAngle = 0;
-    }
+    case RIGHT -> startAngle = mouthOpen ? 30 : 0;
+    case LEFT  -> startAngle = mouthOpen ? 210 : 180;
+    case UP    -> startAngle = mouthOpen ? 120 : 90;
+    case DOWN  -> startAngle = mouthOpen ? 300 : 270;
+    case NONE  -> startAngle = 0;
+}
+
 
     g2.fillArc(
             pacman.x,
@@ -425,13 +435,15 @@ else if (pacman.x > boardWidth) {
 
         //check ghost collisions
         for (Block ghost : ghosts) {
-            if (collision(ghost, pacman)) {
+            updateGhostAI(ghost);
 
-    if (scaredMode) {
+        if (collision(ghost, pacman)) {
+        
+        if (scaredMode) {
         // eat ghost
         ghost.reset();
         score += 200;
-    } else {
+        } else {
         lives--;
         if (lives == 0) {
             gameOver = true;
@@ -441,15 +453,9 @@ else if (pacman.x > boardWidth) {
     }
 }
 
-            if (ghost.y == TILE_SIZE * 9 &&
-            ghost.direction != Direction.UP &&
-            ghost.direction != Direction.DOWN) {
-            ghost.updateDirection(Direction.UP);
-            }
+    boolean moved = false;
 
-            boolean moved = false;
-
-for (int i = 0; i < 4 && !moved; i++) {
+    for (int i = 0; i < 4 && !moved; i++) {
 
     // Copy the normal velocity
     int vx = ghost.velocityX;
@@ -509,6 +515,8 @@ for (Block food : foods) {
     }
 }
 
+
+
 if (foodEaten != null) {
     foods.remove(foodEaten);
 }
@@ -531,6 +539,124 @@ private Direction getRandomNewDirection(Direction current) {
     );
     return newDir;
 }
+private Direction getBestDirectionToward(Block ghost, int targetX, int targetY) {
+    Direction bestDir = ghost.direction;
+    double bestDist = Double.MAX_VALUE;
+
+    for (Direction dir : directions) {
+
+        // prevent reverse
+        if (
+            (ghost.direction == Direction.UP && dir == Direction.DOWN) ||
+            (ghost.direction == Direction.DOWN && dir == Direction.UP) ||
+            (ghost.direction == Direction.LEFT && dir == Direction.RIGHT) ||
+            (ghost.direction == Direction.RIGHT && dir == Direction.LEFT)
+        ) continue;
+
+        int dx = 0, dy = 0;
+        switch (dir) {
+    case UP -> dy = -TILE_SIZE;
+    case DOWN -> dy = TILE_SIZE;
+    case LEFT -> dx = -TILE_SIZE;
+    case RIGHT -> dx = TILE_SIZE;
+    case NONE -> { }
+}
+
+
+        Block test = new Block(null, ghost.x + dx, ghost.y + dy, ghost.width, ghost.height);
+
+        boolean blocked = false;
+        for (Block wall : walls) {
+            if (collision(test, wall)) {
+                blocked = true;
+                break;
+            }
+        }
+        if (blocked) continue;
+
+        double dist = Math.hypot(targetX - test.x, targetY - test.y);
+        if (dist < bestDist) {
+            bestDist = dist;
+            bestDir = dir;
+        }
+    }
+    return bestDir;
+}
+private void updateGhostAI(Block ghost) {
+    if (scaredMode) {
+    ghost.updateDirection(
+        getBestDirectionToward(
+            ghost,
+            boardWidth - pacman.x,
+            boardHeight - pacman.y
+        )
+    );
+    return;
+}
+
+
+    if (!isCentered(ghost)) return;
+
+    int targetX = pacman.x;
+    int targetY = pacman.y;
+
+    switch (ghost.ghostType) {
+
+        // 🔴 RED — direct chase
+        case "red" -> ghost.updateDirection(
+            getBestDirectionToward(ghost, targetX, targetY)
+        );
+
+        // 🟣 PINK — aim 4 tiles ahead
+        case "pink" -> {
+            int offset = TILE_SIZE * 4;
+            switch (pacman.direction) {
+    case UP -> targetY -= offset;
+    case DOWN -> targetY += offset;
+    case LEFT -> targetX -= offset;
+    case RIGHT -> targetX += offset;
+    case NONE -> { }
+}
+        
+            ghost.updateDirection(
+                getBestDirectionToward(ghost, targetX, targetY)
+            );
+        }
+
+        // 🔵 BLUE — ambush using red
+        case "blue" -> {
+            Block red = null;
+            for (Block g : ghosts) {
+                if ("red".equals(g.ghostType)) {
+                    red = g;
+                    break;
+                }
+            }
+            if (red != null) {
+                targetX = pacman.x * 2 - red.x;
+                targetY = pacman.y * 2 - red.y;
+            }
+            ghost.updateDirection(
+                getBestDirectionToward(ghost, targetX, targetY)
+            );
+        }
+
+        // 🟠 ORANGE — random when close
+        case "orange" -> {
+            double dist = Math.hypot(pacman.x - ghost.x, pacman.y - ghost.y);
+            if (dist > TILE_SIZE * 6) {
+                ghost.updateDirection(
+                    getBestDirectionToward(ghost, targetX, targetY)
+                );
+            } else {
+                ghost.updateDirection(
+                    getRandomNewDirection(ghost.direction)
+                );
+            }
+        }
+    }
+}
+
 
     public boolean collision(Block a, Block b) {
         return  a.x < b.x + b.width &&
@@ -583,8 +709,16 @@ if (showReady) {
     scaredTimer--;
     if (scaredTimer <= 0) {
         scaredMode = false;
+
+        // 🔁 RESYNC GHOST DIRECTION AFTER SCARED MODE
+        for (Block ghost : ghosts) {
+            ghost.updateDirection(
+                getRandomNewDirection(ghost.direction)
+            );
+        }
     }
 }
+
 
     }
 
@@ -696,3 +830,4 @@ int[] yPoints = {
 g2.drawPolyline(xPoints, yPoints, xPoints.length);
     }
 }
+
