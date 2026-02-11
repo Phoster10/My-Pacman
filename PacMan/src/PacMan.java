@@ -477,7 +477,7 @@ else if (pacman.x > boardWidth) {
         if (scaredMode) {
         // eat ghost
         ghost.reset();
-        score += 200;
+        score += 1000;
         } else {
         lives--;
         if (lives == 0) {
@@ -565,7 +565,14 @@ for (Block food : foods) {
 
 if (foodEaten != null) {
     foods.remove(foodEaten);
+
+    // SAVE HIGH SCORE IF BEATEN
+    if (score > highScore) {
+        highScore = score;
+        saveHighScore();
+    }
 }
+
 
         if (foods.isEmpty()) {
             loadMap();
@@ -629,14 +636,9 @@ private Direction getBestDirectionToward(Block ghost, int targetX, int targetY) 
     return bestDir;
 }
 private void updateGhostAI(Block ghost) {
-    if (scaredMode) {
-    ghost.updateDirection(
-        getBestDirectionToward(
-            ghost,
-            boardWidth - pacman.x,
-            boardHeight - pacman.y
-        )
-    );
+   if (scaredMode) {
+    // Run away from Pac-Man
+    ghost.updateDirection(getBestDirectionAway(ghost, pacman.x, pacman.y));
     return;
 }
 
@@ -875,4 +877,47 @@ int[] yPoints = {
 
 g2.drawPolyline(xPoints, yPoints, xPoints.length);
     }
+    // NEW FUNCTION: Run away from a target (Pac-Man)
+private Direction getBestDirectionAway(Block ghost, int targetX, int targetY) {
+    Direction bestDir = ghost.direction;
+    double bestDist = -1; // maximize distance
+
+    for (Direction dir : directions) {
+        // prevent reverse
+        if ((ghost.direction == Direction.UP && dir == Direction.DOWN) ||
+            (ghost.direction == Direction.DOWN && dir == Direction.UP) ||
+            (ghost.direction == Direction.LEFT && dir == Direction.RIGHT) ||
+            (ghost.direction == Direction.RIGHT && dir == Direction.LEFT))
+            continue;
+
+        int dx = 0, dy = 0;
+        switch (dir) {
+            case UP -> dy = -TILE_SIZE;
+            case DOWN -> dy = TILE_SIZE;
+            case LEFT -> dx = -TILE_SIZE;
+            case RIGHT -> dx = TILE_SIZE;
+            case NONE -> {}
+        }
+
+        Block test = new Block(null, ghost.x + dx, ghost.y + dy, ghost.width, ghost.height);
+
+        boolean blocked = false;
+        for (Block wall : walls) {
+            if (collision(test, wall)) {
+                blocked = true;
+                break;
+            }
+        }
+        if (blocked) continue;
+
+        double dist = Math.hypot(targetX - test.x, targetY - test.y);
+        if (dist > bestDist) {
+            bestDist = dist;
+            bestDir = dir;
+        }
+    }
+
+    return bestDir;
+}
+
 }
