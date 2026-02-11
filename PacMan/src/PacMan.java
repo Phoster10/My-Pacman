@@ -6,6 +6,11 @@ import java.util.Random;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
 enum Direction {
     UP, DOWN, LEFT, RIGHT, NONE
 }
@@ -28,7 +33,7 @@ static final int MOUTH_SPEED = 1;
 boolean scaredMode = false;
 int scaredTimer = 0;
 static final int SCARED_DURATION = FPS * 8; // ~8 seconds
-
+int highScore = 0;
 int titleAlpha = 255;
 int alphaDirection = -5;
 
@@ -108,20 +113,20 @@ int alphaDirection = -5;
 
     //X = wall, O = skip, P = pac man, ' ' = food
     //Ghosts: b = blue, o = orange, p = pink, r = red
-    private String[] tileMap = {
+ private String[] tileMap = {
         "XXXXXXXXXXXXXXXXXXX",
         "X        X        X",
         "X XX XXX X XXX XX X",
         "X                 X",
         "X XX X XXXXX X XX X",
         "X    X       X    X",
-        "XXXX XXXX XXXX XXXX",
-        "OOOX X       X XOOO",
+        "X XX XXXX XXXX XX X",
+        "X    X       X    X",
         "XXXX X XXrXX X XXXX",
         "O       bpo       O",
         "XXXX X XXXXX X XXXX",
-        "OOOX X       X XOOO",
-        "XXXX X XXXXX X XXXX",
+        "X    X       X    X",
+        "X XX X XXXXX X XX X",
         "X        X        X",
         "X XX XXX X XXX XX X",
         "X  X     P     X  X",
@@ -170,6 +175,8 @@ int alphaDirection = -5;
 }
 
         loadMap();
+        loadHighScore();
+
         for (Block ghost : ghosts) {
             Direction newDirection = directions[random.nextInt(directions.length)];
             ghost.updateDirection(newDirection);
@@ -323,8 +330,12 @@ public void paintComponent(Graphics g) {
     if (gameOver) {
         g2.drawString("...", TILE_SIZE / 2, TILE_SIZE / 2);
     } else {
-        g2.drawString("x" + lives + "  Score: " + score,
-                TILE_SIZE / 2, TILE_SIZE / 2);
+        g2.drawString(
+    "x" + lives + "  Score: " + score + "  High: " + highScore,
+    TILE_SIZE / 2,
+    TILE_SIZE / 2
+);
+
     }
 }
 
@@ -368,11 +379,35 @@ private void placeRandomEnergizers(int count) {
     }
 }
 
+    private void loadHighScore() {
+    try {
+        File file = new File("highscore.dat");
+        if (file.exists()) {
+            BufferedReader br = new BufferedReader(new FileReader(file));
+            highScore = Integer.parseInt(br.readLine());
+            br.close();
+        }
+    } catch (Exception e) {
+        highScore = 0;
+    }
+}
+    
+private void saveHighScore() {
+    try {
+        BufferedWriter bw = new BufferedWriter(new FileWriter("highscore.dat"));
+        bw.write(String.valueOf(highScore));
+        bw.close();
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
+
+
     public boolean isCentered(Block b) {
     return b.x % TILE_SIZE == 0 && b.y % TILE_SIZE == 0;
         }
 
-    public void move() {
+     public void move() {
         if (!gameStarted) return;
         if (nextDirection != Direction.NONE && isCentered(pacman)) {
             Direction oldDirection = pacman.direction;
@@ -451,6 +486,17 @@ else if (pacman.x > boardWidth) {
         }
         resetPositions();
     }
+        if (lives == 0) {
+    gameOver = true;
+
+    if (score > highScore) {
+        highScore = score;
+        saveHighScore();
+    }
+    return;
+}
+
+    
 }
 
     boolean moved = false;
@@ -830,4 +876,3 @@ int[] yPoints = {
 g2.drawPolyline(xPoints, yPoints, xPoints.length);
     }
 }
-
