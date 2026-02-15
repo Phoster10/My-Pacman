@@ -32,10 +32,13 @@ int mouthTimer = 0;
 static final int MOUTH_SPEED = 1;
 boolean scaredMode = false;
 int scaredTimer = 0;
-static final int SCARED_DURATION = FPS * 8; // ~8 seconds
+static final int SCARED_DURATION = FPS * 8; 
 int highScore = 0;
 int titleAlpha = 255;
 int alphaDirection = -5;
+int randomModeTimer = 0;
+static final int START_RANDOM_DURATION = FPS * 7; 
+static final int POST_SCARED_RANDOM_DURATION = FPS * 4; 
 
     class Block {
 
@@ -635,6 +638,8 @@ private Direction getBestDirectionToward(Block ghost, int targetX, int targetY) 
     }
     return bestDir;
 }
+
+
 private void updateGhostAI(Block ghost) {
    if (scaredMode) {
     // Run away from Pac-Man
@@ -644,6 +649,41 @@ private void updateGhostAI(Block ghost) {
 
 
     if (!isCentered(ghost)) return;
+
+    // === NEW: RANDOM MODE OVERRIDE ===
+    // === SCATTER MODE OVERRIDE ===
+if (randomModeTimer > 0) {
+    int scatterX = 0;
+    int scatterY = 0;
+
+    // Assign each ghost a unique corner "home"
+    switch (ghost.ghostType) {
+        case "red" -> { 
+            // Top Right Corner
+            scatterX = (COLS - 2) * TILE_SIZE; 
+            scatterY = TILE_SIZE; 
+        }
+        case "pink" -> { 
+            // Top Left Corner
+            scatterX = TILE_SIZE; 
+            scatterY = TILE_SIZE; 
+        }
+        case "blue" -> { 
+            // Bottom Right Corner
+            scatterX = (COLS - 2) * TILE_SIZE; 
+            scatterY = (ROWS - 2) * TILE_SIZE; 
+        }
+        case "orange" -> { 
+            // Bottom Left Corner
+            scatterX = TILE_SIZE; 
+            scatterY = (ROWS - 2) * TILE_SIZE; 
+        }
+    }
+
+    // Move toward the corner using your existing logic
+    ghost.updateDirection(getBestDirectionToward(ghost, scatterX, scatterY));
+    return; // Exit so they don't switch back to Chase logic
+}
 
     int targetX = pacman.x;
     int targetY = pacman.y;
@@ -717,6 +757,7 @@ private void updateGhostAI(Block ghost) {
         pacman.reset();
         pacman.velocityX = 0;
         pacman.velocityY = 0;
+        randomModeTimer = START_RANDOM_DURATION;
         for (Block ghost : ghosts) {
     ghost.reset();
     Direction newDirection = directions[random.nextInt(directions.length)];
@@ -757,6 +798,9 @@ if (showReady) {
     scaredTimer--;
     if (scaredTimer <= 0) {
         scaredMode = false;
+        
+        // <-- NEW: Trigger 4-second random mode immediately after Scared Mode ends
+        randomModeTimer = POST_SCARED_RANDOM_DURATION; 
 
         // 🔁 RESYNC GHOST DIRECTION AFTER SCARED MODE
         for (Block ghost : ghosts) {
@@ -765,10 +809,11 @@ if (showReady) {
             );
         }
     }
-}
-
-
+} else if (randomModeTimer > 0) {
+    // <-- NEW: Count down the random mode timer ONLY when not in scared mode
+    randomModeTimer--;
     }
+}
 
     @Override
     public void keyTyped(KeyEvent e) {}
@@ -781,8 +826,11 @@ public void keyPressed(KeyEvent e) {
     if (!gameStarted && e.getKeyCode() == KeyEvent.VK_ENTER) {
     showReady = true;
     readyTimer = READY_DURATION;
+    randomModeTimer = START_RANDOM_DURATION;
     return;
 }
+    if (!gameStarted) return;
+
 
     // IGNORE MOVEMENT UNTIL GAME STARTS
     if (!gameStarted) return;
