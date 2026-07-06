@@ -1,13 +1,14 @@
 import javax.swing.JFrame;
 
 public class App {
+
     public static void main(String[] args) {
 
         JFrame frame = new JFrame("Pac Man");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setResizable(false);
 
-        PacMan pacmanGame = new PacMan();
+        GamePanel pacmanGame = new GamePanel();
         frame.add(pacmanGame);
         frame.pack();
 
